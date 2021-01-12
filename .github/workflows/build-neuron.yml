@@ -56,47 +56,22 @@ jobs:
       fail-fast: false
       
     steps:
-      # Make sure the git client is available. This must happen before the
-      # checkout action, so the logic must be inlined in this file.
-      - name: Install git client
-        run: |
-          if [[ "${OS_FLAVOUR}" == "redhat" ]]; then
-            if [[ "${OS_CONTAINER}" == "centos:7" ]]; then
-              # The default CentOS7 git version is too old, which causes the
-              # checkout module (https://github.com/actions/checkout) to fall
-              # back to using a REST API and break subsequent initialisation of
-              # git submodules. This eventually makes the NEURON CI fail. Work
-              # around this by installing a newer git client.
-              yum install -y https://repo.ius.io/ius-release-el7.rpm
-              GIT_PACKAGE=git224
-            fi
-            # Use DNF if available (not CentOS7), otherwise YUM
-            CMD=$(command -v dnf || command -v yum)
-            ${CMD} install -y ${GIT_PACKAGE-git}
-          elif [[ "${OS_FLAVOUR}" == "debian" ]]; then
-            # Avoid apt-get install hanging asking for user input to configure packages
-            export DEBIAN_FRONTEND=noninteractive
-            # Use sudo if its available (typically no inside Docker and yes outside)
-            SUDO=`which sudo || true`
-            ${SUDO} apt-get update
-            if [[ "${OS_CONTAINER}" == "ubuntu:18.04" ]]; then
-              # See above for CentOS7; the default Git is too old for the
-              # checkout module
-              apt-get install -y software-properties-common
-              add-apt-repository -y ppa:git-core/ppa
-            fi
-            ${SUDO} apt-get install -y git
-          fi
+      # Checkout the dedicated repository that steers the CI build
+      - uses: actions/checkout@v2.3.4
+
+      # Install required packages using the system package manager. This
+      # includes installing or updating the git client to a sufficiently
+      # new version that the checkout of the main nrn repository does *not*
+      # fall back to using the REST API, which clobbers submodule information
+      # and breaks the build.
+      - name: Install ${{matrix.os.flavour}} packages
+        run: scripts/install_${{matrix.os.flavour}}.sh 
 
       # Checkout the repository; do this before the privilege step so that we
       # can chown the result there
       - uses: actions/checkout@v2.3.4
         with:
           repository: neuronsimulator/nrn
-
-      # Install required packages using the system package manager
-      - name: Install ${{matrix.os.flavour}} packages
-        run: scripts/install_${{matrix.os.flavour}}.sh 
 
       # When we run in Ubuntu/Fedora/Debian containers from Docker Hub then we
       # are root. This is different from when we use the GitHub Actions images

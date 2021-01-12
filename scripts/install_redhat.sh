@@ -11,6 +11,6 @@ fi
 # Use DNF if available (not CentOS7), otherwise YUM
 CMD=$(command -v dnf || command -v yum)
 ${CMD} upgrade -y
-${CMD} install -y bison cmake dnf doxygen flex gcc gcc-c++ openmpi-devel \
-  libXcomposite-devel libXext-devel make ncurses-devel python3-devel \
-  python3-pip python3-wheel sudo which
+${CMD} install -y bison cmake dnf doxygen flex gcc gcc-c++ ${GIT_PACKAGE-git} \
+  openmpi-devel libXcomposite-devel libXext-devel make ncurses-devel \
+  python3-devel python3-pip python3-wheel sudo which
