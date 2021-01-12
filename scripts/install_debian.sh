@@ -11,7 +11,7 @@ if [ -f "${CONTAINER_SCRIPT}" ]; then
 fi
 
 # Use sudo if its available (typically no inside Docker and yes outside)
-SUDO=`which sudo || true`
+SUDO=`command -v sudo || true`
 ${SUDO} apt-get update
 ${SUDO} apt-get upgrade -y
 ${SUDO} apt-get install -y bison cmake doxygen flex git libncurses-dev \

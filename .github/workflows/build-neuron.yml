@@ -30,29 +30,29 @@ jobs:
       matrix:
         os:
             # GitHub Actions MacOS 11.0 runner
-          - { vm: macos-11.0, flavour: macOS }
+            #- { vm: macos-11.0, flavour: macOS }
             # GitHub Actions MacOS 10.15 runner
-          - { vm: macos-10.15, flavour: macOS }
+            #- { vm: macos-10.15, flavour: macOS }
             # GitHub Actions Ubuntu runner; no Docker
           - { vm: ubuntu-latest, flavour: debian }
             # CentOS7 Docker image
-          - { vm: ubuntu-latest, container: "centos:7", flavour: redhat }
+            #- { vm: ubuntu-latest, container: "centos:7", flavour: redhat }
             # CentOS8 Docker image
-          - { vm: ubuntu-latest, container: "centos:8", flavour: redhat }
+            #- { vm: ubuntu-latest, container: "centos:8", flavour: redhat }
             # Fedora 32 Docker image
-          - { vm: ubuntu-latest, container: "fedora:32", flavour: redhat }
+            #- { vm: ubuntu-latest, container: "fedora:32", flavour: redhat }
             # Fedora Latest (33, at time of writing) Docker image
-          - { vm: ubuntu-latest, container: "fedora:latest", flavour: redhat }
+            #- { vm: ubuntu-latest, container: "fedora:latest", flavour: redhat }
             # Ubuntu 18.04 Docker image
-          - { vm: ubuntu-latest, container: "ubuntu:18.04", flavour: debian }
+            #- { vm: ubuntu-latest, container: "ubuntu:18.04", flavour: debian }
             # Ubuntu Latest (20.04, at time of writing) Docker image
-          - { vm: ubuntu-latest, container: "ubuntu:latest", flavour: debian }
+            #- { vm: ubuntu-latest, container: "ubuntu:latest", flavour: debian }
             # Debian stretch Docker image: disabled because there does not
             # appear to be a supported way of getting a recent version of CMake
             # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=954852
             # - { vm: ubuntu-latest, container: "debian:stretch", flavour: debian }
             # Debian stable (10/buster, at time of writing) Docker image
-          - { vm: ubuntu-latest, container: "debian:stable", flavour: debian }
+            #- { vm: ubuntu-latest, container: "debian:stable", flavour: debian }
       fail-fast: false
       
     steps:
@@ -92,3 +92,9 @@ jobs:
         run: ../wrappers/runUnprivileged.sh ../scripts/buildNeuron.sh
         env:
           INSTALL_DIR : ${{github.workspace}}/nrn/install
+
+      # This step will set up an SSH connection on tmate.io for live debugging
+      # of non-Docker runs that failed.
+      - name: live debug session on failure
+        if: failure() && !matrix.os.container
+        uses: mxschmitt/action-tmate@v3
