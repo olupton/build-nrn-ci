@@ -5,7 +5,7 @@ then
   exit 1
 fi
 # TODO factor out common code from different Linux flavours
-source scripts/environment_${OS_FLAVOUR}.sh
+source ../scripts/environment_${OS_FLAVOUR}.sh
 # TODO remove some of these packages
 python3 -m pip install --user --upgrade -r docs/docs_requirements.txt bokeh cython ipython matplotlib mpi4py \
   pytest scikit-build

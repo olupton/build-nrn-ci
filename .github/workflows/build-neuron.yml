@@ -20,6 +20,7 @@ jobs:
     name: ${{ matrix.os.vm }} ${{ matrix.os.container }}
         
     env:
+      # TODO is this needed
       SDK_ROOT: $(xcrun --sdk macosx --show-sdk-path)
       OS_FLAVOUR: ${{matrix.os.flavour}}
       OS_CONTAINER: ${{matrix.os.container}}
@@ -71,6 +72,7 @@ jobs:
       # can chown the result there
       - uses: actions/checkout@v2.3.4
         with:
+          path: nrn
           repository: neuronsimulator/nrn
 
       # When we run in Ubuntu/Fedora/Debian containers from Docker Hub then we
@@ -86,10 +88,10 @@ jobs:
     
       # Put all the remaining steps in one job that runs as an unprivileged user
       - name: Build and test NEURON
-        working-directory: ${{github.workspace}}
-        run: wrappers/runUnprivileged.sh scripts/buildNeuron.sh
+        working-directory: ${{github.workspace}}/nrn
+        run: ../wrappers/runUnprivileged.sh ../scripts/buildNeuron.sh
         env:
-          INSTALL_DIR : ${{github.workspace}}/install
+          INSTALL_DIR : ${{github.workspace}}/nrn/install
 
       # This step will set up an SSH connection on tmate.io for live debugging.
       # To trigger it, simply prefix your branch name with `live-debug`
