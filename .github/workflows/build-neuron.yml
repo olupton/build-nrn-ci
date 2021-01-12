@@ -20,7 +20,6 @@ jobs:
     name: ${{ matrix.os.vm }} ${{ matrix.os.container }}
         
     env:
-      # TODO is this needed?
       SDK_ROOT: $(xcrun --sdk macosx --show-sdk-path)
       OS_FLAVOUR: ${{matrix.os.flavour}}
       OS_CONTAINER: ${{matrix.os.container}}
