@@ -1,0 +1,125 @@
+name: NEURON CI
+
+on:
+  push:
+    branches: 
+      - master
+
+env:
+  BUILD_TYPE: Release
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    timeout-minutes: 25
+    runs-on: ${{ matrix.os.vm }}
+    container: ${{ matrix.os.container }}
+    name: ${{ matrix.os.vm }} ${{ matrix.os.container }}
+        
+    env:
+      SDK_ROOT: $(xcrun --sdk macosx --show-sdk-path)
+      OS_FLAVOUR: ${{matrix.os.flavour}}
+      OS_CONTAINER: ${{matrix.os.container}}
+      UNPRIVILEGED_USER: runner # User created+used inside Docker containers
+      SOFTWARE_COLLECTIONS_centos_7: devtoolset-9 # Toolchain installed on CentOS7
+
+    strategy:
+      matrix:
+        os:
+            # GitHub Actions MacOS 11.0 runner
+            #- { vm: macos-11.0, flavour: macOS }
+            # GitHub Actions MacOS 10.15 runner
+          - { vm: macos-10.15, flavour: macOS }
+            # GitHub Actions Ubuntu runner; no Docker
+            #- { vm: ubuntu-latest, flavour: debian }
+            # CentOS7 Docker image
+            #- { vm: ubuntu-latest, container: "centos:7", flavour: redhat }
+            # CentOS8 Docker image
+            #- { vm: ubuntu-latest, container: "centos:8", flavour: redhat }
+            # Fedora 32 Docker image
+            #- { vm: ubuntu-latest, container: "fedora:32", flavour: redhat }
+            # Fedora Latest (33, at time of writing) Docker image
+          - { vm: ubuntu-latest, container: "fedora:latest", flavour: redhat }
+            # Ubuntu 18.04 Docker image
+            #- { vm: ubuntu-latest, container: "ubuntu:18.04", flavour: debian }
+            # Ubuntu Latest (20.04, at time of writing) Docker image
+            #- { vm: ubuntu-latest, container: "ubuntu:latest", flavour: debian }
+            # Debian stretch Docker image: disabled because there does not
+            # appear to be a supported way of getting a recent version of CMake
+            # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=954852
+            # - { vm: ubuntu-latest, container: "debian:stretch", flavour: debian }
+            # Debian stable (10/buster, at time of writing) Docker image
+            #- { vm: ubuntu-latest, container: "debian:stable", flavour: debian }
+      fail-fast: false
+      
+    steps:
+      # Make sure the git client is available. This must happen before the
+      # checkout action, so the logic must be inlined in this file.
+      - name: Install git client
+        run: |
+          if [[ "${OS_FLAVOUR}" == "redhat" ]]; then
+            if [[ "${OS_CONTAINER}" == "centos:7" ]]; then
+              # The default CentOS7 git version is too old, which causes the
+              # checkout module (https://github.com/actions/checkout) to fall
+              # back to using a REST API and break subsequent initialisation of
+              # git submodules. This eventually makes the NEURON CI fail. Work
+              # around this by installing a newer git client.
+              yum install -y https://repo.ius.io/ius-release-el7.rpm
+              GIT_PACKAGE=git224
+            fi
+            # Use DNF if available (not CentOS7), otherwise YUM
+            CMD=$(command -v dnf || command -v yum)
+            ${CMD} install -y ${GIT_PACKAGE-git}
+          elif [[ "${OS_FLAVOUR}" == "debian" ]]; then
+            # Avoid apt-get install hanging asking for user input to configure packages
+            export DEBIAN_FRONTEND=noninteractive
+            # Use sudo if its available (typically no inside Docker and yes outside)
+            SUDO=`which sudo || true`
+            ${SUDO} apt-get update
+            if [[ "${OS_CONTAINER}" == "ubuntu:18.04" ]]; then
+              # See above for CentOS7; the default Git is too old for the
+              # checkout module
+              apt-get install -y software-properties-common
+              add-apt-repository -y ppa:git-core/ppa
+            fi
+            ${SUDO} apt-get install -y git
+          fi
+
+      # Checkout the repository; do this before the privilege step so that we
+      # can chown the result there
+      - uses: actions/checkout@v2.3.4
+        with:
+          repository: neuronsimulator/nrn
+
+      # Install required packages using the system package manager
+      - name: Install ${{matrix.os.flavour}} packages
+        run: scripts/install_${{matrix.os.flavour}}.sh 
+
+      # When we run in Ubuntu/Fedora/Debian containers from Docker Hub then we
+      # are root. This is different from when we use the GitHub Actions images
+      # directly, and leads to errors from MPI later. If we run inside Docker,
+      # create a regular user to run as.
+      - name: Setup unprivileged user
+        # If we run in a native GitHub Actions container, without Docker, this isn't needed
+        if: matrix.os.container
+        run: |
+          useradd --create-home --create-home ${UNPRIVILEGED_USER}
+          chown -R ${UNPRIVILEGED_USER}:${UNPRIVILEGED_USER} ${GITHUB_WORKSPACE}
+    
+      # Put all the remaining steps in one job that runs as an unprivileged user
+      - name: Build and test NEURON
+        working-directory: ${{github.workspace}}
+        run: wrappers/runUnprivileged.sh scripts/buildNeuron.sh
+        env:
+          INSTALL_DIR : ${{github.workspace}}/install
+
+      # This step will set up an SSH connection on tmate.io for live debugging.
+      # To trigger it, simply prefix your branch name with `live-debug`
+      #   i.e.: live-debug-hocfix
+      # TODO: probably remove this, as it doesn't work on most Docker images
+      - name: live debug session on failure
+        if: failure() && ( matrix.os.flavour == 'debian' )
+        uses: mxschmitt/action-tmate@v3
